@@ -6,52 +6,25 @@
 <title>Расписание 1-11 классы</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-body { box-sizing: border-box; margin:0; background: linear-gradient(to bottom right, #e0f2fe, #e0e7ff); font-family: sans-serif; }
-
+body { box-sizing: border-box; margin:0; background: linear-gradient(to bottom right,#e0f2fe,#c7d2fe);}
 .time-container {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  text-align: center;
-  color: #111827;
-  z-index: 1000;
-  background-color: rgba(255,255,255,0.85);
-  padding: 8px 12px;
-  border-radius: 8px;
+  position: fixed; top: 20px; right: 20px; text-align: center; color: #111827;
+  z-index: 1000; background-color: rgba(255,255,255,0.85); padding: 8px 12px; border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
+#clock { font-size:1.8rem; font-weight:bold;}
+#date { font-size:1.2rem; font-weight:bold; color:#374151;}
 
-#clock { font-size: 1.8rem; font-weight: bold; }
-#date { font-size: 1.2rem; font-weight: bold; color: #374151; }
+.arrow { position: fixed; top:50%; transform:translateY(-50%); font-size:3rem; color:rgba(0,0,0,0.5); cursor:pointer; z-index:1000; user-select:none;}
+.arrow:hover { color: rgba(0,0,0,0.8);}
+.left-arrow { left:10px;} .right-arrow{right:10px;}
 
-.arrow {
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 3rem;
-  color: rgba(0,0,0,0.5);
-  cursor: pointer;
-  z-index: 1000;
-  user-select: none;
-}
-.arrow:hover { color: rgba(0,0,0,0.8); }
-.left-arrow { left: 10px; }
-.right-arrow { right: 10px; }
-
-#schedule-container { position: relative; overflow: hidden; min-height: 700px; }
-.schedule-pages-wrapper {
-  display: flex;
-  transition: transform 0.8s ease;
-  width: 100%;
-}
-.schedule-page { min-width: 100%; box-sizing: border-box; }
-
-table { width: 100%; border-collapse: collapse; background-color: white; color: black; }
-th, td { border: 1px solid #ccc; padding: 5px; text-align: center; vertical-align: middle; color: black; background-color: white; }
-td[contenteditable="true"] { background-color: white; color: black; }
-td[contenteditable="true"] span { display: block; font-size: 0.8rem; color: black; }
-
-.locked td[contenteditable="true"] { background:#e0e7ff; cursor: default; }
+#schedule-container { position: relative; overflow:hidden; min-height:700px;}
+.schedule-pages-wrapper { display:flex; transition: transform 0.8s ease; width:100%;}
+.schedule-page { min-width:100%; box-sizing:border-box;}
+td[contenteditable="true"] { text-align:center; vertical-align:middle; color:#000; background:#fff; }
+td[contenteditable="true"] span { display:block; text-align:center; font-size:0.8rem; color:#000;}
+.locked td[contenteditable="true"] { background:#e0e7ff; cursor:default;}
 .lock-icon { margin-left:5px; color:#f87171; }
 </style>
 </head>
@@ -79,92 +52,94 @@ td[contenteditable="true"] span { display: block; font-size: 0.8rem; color: blac
   </div>
 </div>
 
-<script>
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB2uI4kWwca1-wz3Knrko8eVkSOuPMxby8",
+  authDomain: "schedule-8abc5.firebaseapp.com",
+  databaseURL: "https://schedule-8abc5-default-rtdb.firebaseio.com",
+  projectId: "schedule-8abc5",
+  storageBucket: "schedule-8abc5.appspot.com",
+  messagingSenderId: "158778787396",
+  appId: "1:158778787396:web:bab4216617044c17665e11",
+  measurementId: "G-WDCDG542WQ"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
 // ===== Часы =====
 function updateClock() {
   const now = new Date();
-  const hours = String(now.getHours()).padStart(2,'0');
-  const minutes = String(now.getMinutes()).padStart(2,'0');
-  const seconds = String(now.getSeconds()).padStart(2,'0');
-  document.getElementById('clock').textContent = `${hours}:${minutes}:${seconds}`;
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${h}:${m}:${s}`;
   const days = ["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"];
   const months = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
-  const dayName = days[now.getDay()];
-  const day = now.getDate();
-  const month = months[now.getMonth()];
-  const year = now.getFullYear();
-  document.getElementById('date').textContent = `${dayName}, ${day} ${month} ${year}`;
+  document.getElementById('date').textContent = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
 }
-setInterval(updateClock,1000);
-updateClock();
+setInterval(updateClock,1000); updateClock();
 
 // ===== Расписание =====
 const pagesWrapper = document.getElementById('pagesWrapper');
-let currentPage=0;
-let pages=[];
+let currentPage=0; let pages=[];
 const classLetters=["А","Б","В","Г","Д"];
 const allClasses=[];
-for(let i=1;i<=11;i++){classLetters.forEach(l=>allClasses.push(i+l));}
+for(let i=1;i<=11;i++){ classLetters.forEach(l=>allClasses.push(i+l)); }
 
-let scheduleData = JSON.parse(localStorage.getItem("scheduleData")) || {};
-allClasses.forEach(cls=>{
-  if(!scheduleData[cls]) scheduleData[cls]={"Понедельник":[], "Вторник":[], "Среда":[], "Четверг":[], "Пятница":[]};
-  for(const day in scheduleData[cls]){
-    while(scheduleData[cls][day].length<8) scheduleData[cls][day].push({subject:"",room:""});
-  }
+let scheduleData={}; let isLocked=false;
+
+// Загрузка с Firebase
+const scheduleRef = ref(db, '/schedule');
+onValue(scheduleRef, (snapshot)=>{
+  scheduleData = snapshot.val() || {};
+  generateSchedulePages();
 });
 
-let isLocked=false;
-
+// Генерация страниц
 function generateSchedulePages(){
-  pagesWrapper.innerHTML="";
-  pages=[];
+  pagesWrapper.innerHTML=""; pages=[];
   for(let i=0;i<allClasses.length;i+=3){
-    const pageDiv = document.createElement("div");
-    pageDiv.className="schedule-page";
+    const pageDiv=document.createElement("div"); pageDiv.className="schedule-page";
     const pageClasses = allClasses.slice(i,i+3);
     pageClasses.forEach(cls=>{
+      if(!scheduleData[cls]) scheduleData[cls] = {"Понедельник":[],"Вторник":[],"Среда":[],"Четверг":[],"Пятница":[]};
+      for(const day in scheduleData[cls]){
+        while(scheduleData[cls][day].length<8) scheduleData[cls][day].push({subject:"",room:""});
+      }
       let html=`<h2 class="text-2xl font-bold my-2">${cls}</h2>
-        <table class="${isLocked?"locked":""}">
-        <thead>
-          <tr class="bg-gray-900 text-white">
-            <th>№</th>
-            <th>Понедельник</th>
-            <th>Вторник</th>
-            <th>Среда</th>
-            <th>Четверг</th>
-            <th>Пятница</th>
-          </tr>
-        </thead>
-        <tbody>`;
+      <table class="w-full border-collapse mb-8 bg-white rounded-lg shadow-lg overflow-hidden ${isLocked?"locked":""}">
+        <thead><tr class="bg-gray-900 text-white">
+        <th class="border px-4 py-2">№</th>
+        <th class="border px-4 py-2">Понедельник</th>
+        <th class="border px-4 py-2">Вторник</th>
+        <th class="border px-4 py-2">Среда</th>
+        <th class="border px-4 py-2">Четверг</th>
+        <th class="border px-4 py-2">Пятница</th></tr></thead><tbody>`;
       for(let j=0;j<8;j++){
         html+="<tr>";
-        html+=`<td>${j+1}</td>`;
+        html+=`<td class="border px-2 py-1 text-center">${j+1}</td>`;
         ["Понедельник","Вторник","Среда","Четверг","Пятница"].forEach(day=>{
           const lesson=scheduleData[cls][day][j];
-          html+=`<td contenteditable="${!isLocked}" data-class="${cls}" data-day="${day}" data-lesson="${j}">
-                  ${lesson.subject}<br><span>${lesson.room}</span>
-                 </td>`;
+          html+=`<td class="border px-2 py-1" contenteditable="${!isLocked}" data-class="${cls}" data-day="${day}" data-lesson="${j}">
+                  ${lesson.subject}<br><span>${lesson.room}</span></td>`;
         });
         html+="</tr>";
       }
       html+="</tbody></table>";
       pageDiv.innerHTML+=html;
     });
-    pagesWrapper.appendChild(pageDiv);
-    pages.push(pageDiv);
+    pagesWrapper.appendChild(pageDiv); pages.push(pageDiv);
   }
   updateSlider();
 }
 
-function updateSlider(){
-  pagesWrapper.style.transform = `translateX(${-currentPage*100}%)`;
-}
-
-function showPage(index){
-  currentPage=(index+pages.length)%pages.length;
-  updateSlider();
-}
+function updateSlider(){ pagesWrapper.style.transform = `translateX(${-currentPage*100}%)`; }
+function showPage(index){ currentPage=(index+pages.length)%pages.length; updateSlider(); }
 
 // Навигация
 document.getElementById('prevPage').addEventListener('click',()=>showPage(currentPage-1));
@@ -173,22 +148,17 @@ document.getElementById('nextPage').addEventListener('click',()=>showPage(curren
 // Автопрокрутка
 setInterval(()=>showPage(currentPage+1),15000);
 
-// Сохранение изменений
+// Сохранение в Firebase
 pagesWrapper.addEventListener('input',e=>{
   if(isLocked) return;
-  const td=e.target.closest('td');
-  if(td){
-    const cls=td.dataset.class;
-    const day=td.dataset.day;
-    const lesson=td.dataset.lesson;
-    const lines=td.innerHTML.split("<br>");
-    scheduleData[cls][day][lesson].subject=lines[0]?.trim()||"";
-    scheduleData[cls][day][lesson].room=lines[1]?.trim()||"";
-    localStorage.setItem("scheduleData",JSON.stringify(scheduleData));
-  }
+  const td = e.target.closest('td'); if(!td) return;
+  const cls = td.dataset.class, day = td.dataset.day, lesson = td.dataset.lesson;
+  const lines = td.innerHTML.split("<br>");
+  scheduleData[cls][day][lesson]={subject:lines[0]?.trim()||"", room:lines[1]?.trim()||""};
+  set(scheduleRef, scheduleData);
 });
 
-// Сброс
+// Кнопки
 document.getElementById('resetBtn').addEventListener('click',()=>{
   if(confirm("Вы точно хотите сбросить все уроки?")){
     allClasses.forEach(cls=>{
@@ -196,25 +166,12 @@ document.getElementById('resetBtn').addEventListener('click',()=>{
         scheduleData[cls][day]=Array.from({length:8},()=>({subject:"",room:""}));
       }
     });
-    localStorage.removeItem("scheduleData");
-    generateSchedulePages();
+    set(scheduleRef, scheduleData);
   }
 });
+document.getElementById('saveBtn').addEventListener('click',()=>{ set(scheduleRef,scheduleData); alert("Сохранено!"); });
+document.getElementById('toggleLockBtn').addEventListener('click',()=>{ isLocked=!isLocked; document.getElementById('lockIcon').textContent=isLocked?"🔒":"🔓"; generateSchedulePages(); });
 
-// Сохранение
-document.getElementById('saveBtn').addEventListener('click',()=>{
-  localStorage.setItem("scheduleData",JSON.stringify(scheduleData));
-  alert("Расписание сохранено!");
-});
-
-// Замок
-document.getElementById('toggleLockBtn').addEventListener('click',()=>{
-  isLocked=!isLocked;
-  document.getElementById('lockIcon').textContent=isLocked?"🔒":"🔓";
-  generateSchedulePages();
-});
-
-generateSchedulePages();
 </script>
 </body>
 </html>
